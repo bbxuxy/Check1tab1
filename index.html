@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบเช็คชื่อพร้อมยืนยันตัวตน</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --danger-gradient: linear-gradient(135deg, #ff7675, #d63031);
+            --success-gradient: linear-gradient(135deg, #00b894, #55efc4);
+            --bg-color: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0; padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 25px;
+            border-radius: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .settings-btn {
+            position: absolute; top: 25px; right: 25px;
+            width: 45px; height: 45px;
+            background: var(--primary-gradient);
+            color: white; border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s;
+        }
+
+        h2#mainTitle {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-size: 26px; text-align: center; margin-bottom: 5px;
+        }
+
+        .student-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 20px; margin-bottom: 12px;
+            background: #fff; border: 2px solid #f1f1f1; border-radius: 20px;
+        }
+
+        .check-circle-red {
+            width: 35px; height: 35px;
+            background: var(--danger-gradient);
+            color: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 4px 10px rgba(214, 48, 49, 0.3);
+            transition: 0.3s;
+        }
+
+        .checked-text {
+            color: #00b894; font-weight: 600; font-size: 16px;
+            background: #e6fffb; padding: 5px 15px; border-radius: 12px;
+        }
+
+        /* Popups */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+            backdrop-filter: blur(8px);
+        }
+
+        .popup {
+            background: white; padding: 30px; border-radius: 30px;
+            width: 85%; max-width: 350px; text-align: center;
+            animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounceIn {
+            from { transform: scale(0.7); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        button {
+            border: none; padding: 12px 25px; border-radius: 15px;
+            font-family: 'Kanit'; font-weight: 600; cursor: pointer; color: white;
+            transition: 0.3s;
+        }
+
+        .btn-confirm { background: var(--primary-gradient); }
+        .btn-cancel { background: var(--danger-gradient); }
+
+        input {
+            width: 85%; padding: 12px; margin: 15px 0; border-radius: 12px;
+            border: 2px solid #eee; text-align: center; font-size: 18px;
+            font-family: 'Kanit';
+        }
+
+        #successAnim {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); z-index: 2000; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="settings-btn" onclick="openPopup('loginOverlay')"><i class="fas fa-cog"></i></div>
+    <div style="text-align: center; margin-bottom: 25px;">
+        <h2 id="mainTitle">🏕️ เช็คชื่อ Real-time</h2>
+        <p id="totalCount" style="color: #666;">กำลังโหลด...</p>
+    </div>
+    <div id="studentList"></div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+    <div class="popup">
+        <h3 id="confirmMsg" style="color:#2d3436">ยืนยันเช็คชื่อ?</h3>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:20px;">
+            <button class="btn-confirm" onclick="goToVerify()">ตกลง</button>
+            <button class="btn-cancel" onclick="closePopup('confirmOverlay')">ยกเลิก</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="verifyOverlay">
+    <div class="popup">
+        <h3 id="verifyTitle" style="color:#6c5ce7">ใส่เลขประจำตัว</h3>
+        <p id="targetStudent" style="font-size:14px; color:#666;"></p>
+        <input type="number" id="idInput" placeholder="เลขประจำตัว 5 หลัก" pattern="\d*">
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn-confirm" onclick="finalProcess()">เช็คชื่อ</button>
+            <button class="btn-cancel" onclick="closePopup('verifyOverlay')">ยกเลิก</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="loginOverlay">
+    <div class="popup">
+        <h3 style="color:#6c5ce7">🔐 รหัสผู้ดูแล</h3>
+        <input type="password" id="passInput" placeholder="รหัส 6 หลัก">
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn-confirm" onclick="verifyLogin()">ตกลง</button>
+            <button class="btn-cancel" onclick="closePopup('loginOverlay')">ปิด</button>
+        </div>
+    </div>
+</div>
+
+<div class="overlay" id="adminOverlay">
+    <div class="popup">
+        <h3 style="color:#6c5ce7">⚙️ ตั้งค่า</h3>
+        <input type="text" id="newTitleInput" placeholder="หัวข้อใหม่">
+        <button class="btn-confirm" style="width:100%; margin-bottom:10px;" onclick="changeTitle()">เปลี่ยนหัวข้อ</button>
+        <button class="btn-cancel" style="width:100%" onclick="resetAll()">🔄 รีเซ็ตทั้งหมด</button>
+        <button onclick="closePopup('adminOverlay')" style="background:#ccc; margin-top:15px; color:#333;">ปิด</button>
+    </div>
+</div>
+
+<div id="successAnim">
+    <i class="fas fa-check-circle" style="font-size: 100px; color: #00b894; animation: bounceIn 0.5s;"></i>
+    <h2 style="color:#00b894">เช็คชื่อสำเร็จ!</h2>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCMR7vEcGjJGkE3gVCE16p5GxT4O3GKndE",
+        authDomain: "checktub1.firebaseapp.com",
+        projectId: "checktub1",
+        databaseURL: "https://checktub1-default-rtdb.firebaseio.com",
+        appId: "1:86233236280:web:889e733ed53807e6f377cd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let selectedId = null;
+    let localData = {};
+    const START_ID_NUM = 36056; // เลขประจำตัวคนแรก
+
+    onValue(ref(db, 'attendance'), (snapshot) => {
+        localData = snapshot.val() || {};
+        renderList();
+    });
+
+    onValue(ref(db, 'settings/title'), (snapshot) => {
+        if (snapshot.val()) document.getElementById('mainTitle').innerText = snapshot.val();
+    });
+
+    function renderList() {
+        const container = document.getElementById('studentList');
+        container.innerHTML = '';
+        let count = 0;
+
+        for (let i = 1; i <= 30; i++) {
+            const isChecked = localData[i] === true;
+            if (isChecked) count++;
+
+            const div = document.createElement('div');
+            div.className = 'student-item';
+            div.innerHTML = `
+                <div style="font-weight:600">เลขที่ ${i}</div>
+                <div>
+                    ${isChecked ? 
+                        `<span class="checked-text"><i class="fas fa-check"></i> เช็คแล้ว</span>` : 
+                        `<div class="check-circle-red" onclick="askCheckIn(${i})"><i class="fas fa-times"></i></div>`
+                    }
+                </div>
+            `;
+            container.appendChild(div);
+        }
+        document.getElementById('totalCount').innerText = `มาแล้ว ${count} / 30 คน`;
+    }
+
+    // ลำดับขั้นตอน: 1. ยืนยัน -> 2. ใส่เลขประจำตัว -> 3. บันทึก
+    window.askCheckIn = (id) => {
+        selectedId = id;
+        document.getElementById('confirmMsg').innerText = `ยืนยันเช็คชื่อ เลขที่ ${id} หรือไม่?`;
+        openPopup('confirmOverlay');
+    };
+
+    window.goToVerify = () => {
+        closePopup('confirmOverlay');
+        document.getElementById('targetStudent').innerText = `(เลขที่ ${selectedId})`;
+        document.getElementById('idInput').value = '';
+        openPopup('verifyOverlay');
+    };
+
+    window.finalProcess = () => {
+        const userInput = document.getElementById('idInput').value;
+        const correctID = START_ID_NUM + (selectedId - 1); // คำนวณเลขที่ถูกต้อง
+
+        if (parseInt(userInput) === correctID) {
+            set(ref(db, 'attendance/' + selectedId), true);
+            closePopup('verifyOverlay');
+            
+            const anim = document.getElementById('successAnim');
+            anim.style.display = 'block';
+            setTimeout(() => anim.style.display = 'none', 2000);
+        } else {
+            alert(`เลขประจำตัวไม่ถูกต้อง!`);
+        }
+    };
+
+    // Admin System
+    window.verifyLogin = () => {
+        if (document.getElementById('passInput').value === '111111') {
+            closePopup('loginOverlay');
+            openPopup('adminOverlay');
+        } else { alert('รหัสผิด!'); }
+    };
+
+    window.changeTitle = () => {
+        const title = document.getElementById('newTitleInput').value;
+        if (title) set(ref(db, 'settings/title'), title);
+    };
+
+    window.resetAll = () => {
+        if (confirm('ล้างข้อมูลทั้งหมด?')) {
+            set(ref(db, 'attendance'), {});
+            alert('รีเซ็ตสำเร็จ');
+        }
+    };
+
+    window.openPopup = (id) => document.getElementById(id).style.display = 'flex';
+    window.closePopup = (id) => document.getElementById(id).style.display = 'none';
+
+</script>
+</body>
+</html>
